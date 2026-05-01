@@ -52,55 +52,27 @@
             }
         }
 
-        async function requestPush() {
-    const statusDiv = document.getElementById('status');
-    statusDiv.innerText = "Begär tillåtelse...";
-
-    // En timeout som triggas efter 20 sekunder
-    const timeout = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("TIMEOUT")), 20000)
-    );
-
-    try {
-        // Race mellan användarens input och vår 20-sekunders timer
-        const permission = await Promise.race([
-            Notification.requestPermission(),
-            timeout
-        ]);
-
-        if (permission === 'granted') {
-            statusDiv.innerText = "Hämtar prenumerations-id...";
-            const registration = await navigator.serviceWorker.ready;
-            
-            const subscribeOptions = {
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
-            };
-            
-            const subscription = await registration.pushManager.subscribe(subscribeOptions);
-            
-            await fetch(SCRIPT_URL, {
-                method: "POST",
-                body: JSON.stringify({
-                    type: "subscribe",
-                    subscription: JSON.stringify(subscription)
-                })
-            });
-            
-            statusDiv.innerText = "Push aktiverat och sparat i Sheets!";
-        } else {
-            statusDiv.innerText = "Notiser nekade av användaren.";
-        }
-
-    } catch (e) {
-        if (e.message === "TIMEOUT") {
-            statusDiv.innerHTML = "<strong>Svarar inte?</strong><br>Kontrollera att appen är installerad på hemskärmen (Dela -> Lägg till på hemskärmen).";
-        } else {
-            statusDiv.innerText = "Ett fel uppstod: " + e.message;
-        }
-        console.error(e);
+    async function requestPush() {
+    const topic = "Andy-timereport-Unique-topic"; // Välj något helt unikt här!
+    const permission = await Notification.requestPermission();
+    
+    if (permission === 'granted') {
+        // Vi sparar bara ner namnet på kanalen i vårt Sheet
+        await fetch(SCRIPT_URL, {
+            method: "POST",
+            body: JSON.stringify({
+                type: "subscribe",
+                subscription: topic
+            })
+        });
+        document.getElementById('status').innerText = "Prenumererar på: " + topic;
+        
+        // För att iOS ska visa notisen när vi inte har en app, 
+        // kan du ladda ner "ntfy"-appen i App Store (gratis, öppen källkod)
+        // och lägga till samma "topic". 
     }
 }
+
     </script>
 </body>
 </html>
