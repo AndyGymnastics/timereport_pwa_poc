@@ -5,44 +5,87 @@
     <link rel="manifest" href="manifest.json">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 20px; }
-        button { padding: 15px; margin: 10px; width: 80%; font-size: 16px; cursor: pointer; }
-        #status { color: green; margin-top: 20px; }
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f4f9; }
+        button { padding: 15px; margin: 10px; width: 80%; max-width: 300px; font-size: 16px; cursor: pointer; border: none; border-radius: 8px; background: #4285f4; color: white; }
+        #status { color: #555; margin-top: 20px; font-style: italic; }
     </style>
 </head>
 <body>
-    <h1>Tidrapportering</h1>
+    <h1>Tidrapportering PoC</h1>
     <button onclick="sendTime()">Rapportera Tid Nu</button>
     <button onclick="requestPush()">Aktivera Påminnelser</button>
-    <div id="status"></div>
+    <div id="status">Väntar på åtgärd...</div>
 
     <script>
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyOEiZOkAI-M91t1YF08dVxWFxvBT1w2X9UxI7t-nhZy_gjG26ArNtM2hG2kIsrITBv/exec";
+        const PUBLIC_VAPID_KEY = "BFCPkISUpG5urK5hJTCtzJ5Mxr26wcrKYVvlpvH3cu6lqcmp4PMqkN7Pgb8MHF88+1iXx5rKpN+hsul8skekgZM=";
 
         // Registrera Service Worker
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js');
+            navigator.serviceWorker.register('sw.js').then(() => {
+                console.log("Service Worker registrerad!");
+            });
+        }
+
+        // Hjälpfunktion för att konvertera nyckeln
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
         }
 
         async function sendTime() {
-            const res = await fetch(SCRIPT_URL, {
-                method: "POST",
-                body: JSON.stringify({
-                    type: "log",
-                    user: "Testanvändare",
-                    note: "Rapport från PWA"
-                })
-            });
-            document.getElementById('status').innerText = "Skickat till Sheets!";
+            document.getElementById('status').innerText = "Skickar...";
+            try {
+                await fetch(SCRIPT_URL, {
+                    method: "POST",
+                    body: JSON.stringify({
+                        type: "log",
+                        user: "PoC-Användare",
+                        note: "Tidrapport via PWA"
+                    })
+                });
+                document.getElementById('status').innerText = "Loggad i Sheets!";
+            } catch (e) {
+                document.getElementById('status').innerText = "Fel: " + e;
+            }
         }
 
         async function requestPush() {
+            document.getElementById('status').innerText = "Begär tillåtelse...";
+            const registration = await navigator.serviceWorker.ready;
             const permission = await Notification.requestPermission();
+            
             if (permission === 'granted') {
-                document.getElementById('status').innerText = "Notiser aktiverade!";
-                // Vi hanterar själva prenumerations-logiken i nästa steg
+                try {
+                    const subscribeOptions = {
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
+                    };
+                    
+                    const subscription = await registration.pushManager.subscribe(subscribeOptions);
+                    
+                    await fetch(SCRIPT_URL, {
+                        method: "POST",
+                        body: JSON.stringify({
+                            type: "subscribe",
+                            subscription: JSON.stringify(subscription)
+                        })
+                    });
+                    
+                    document.getElementById('status').innerText = "Push aktiverat och sparat!";
+                } catch (e) {
+                    document.getElementById('status').innerText = "Push-fel: " + e;
+                    console.error(e);
+                }
+            } else {
+                document.getElementById('status').innerText = "Notiser nekade.";
             }
         }
     </script>
 </body>
 </html>
+
+
+
