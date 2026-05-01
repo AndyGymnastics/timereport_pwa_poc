@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PWA PoC</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; }
+        button { padding: 15px; margin: 10px; width: 80%; font-size: 16px; cursor: pointer; }
+        #status { color: green; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Tidrapportering</h1>
+    <button onclick="sendTime()">Rapportera Tid Nu</button>
+    <button onclick="requestPush()">Aktivera Påminnelser</button>
+    <div id="status"></div>
+
+    <script>
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyOEiZOkAI-M91t1YF08dVxWFxvBT1w2X9UxI7t-nhZy_gjG26ArNtM2hG2kIsrITBv/exec";
+
+        // Registrera Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
+        }
+
+        async function sendTime() {
+            const res = await fetch(SCRIPT_URL, {
+                method: "POST",
+                body: JSON.stringify({
+                    type: "log",
+                    user: "Testanvändare",
+                    note: "Rapport från PWA"
+                })
+            });
+            document.getElementById('status').innerText = "Skickat till Sheets!";
+        }
+
+        async function requestPush() {
+            const permission = await Notification.requestPermission();
+            if (permission === 'granted') {
+                document.getElementById('status').innerText = "Notiser aktiverade!";
+                // Vi hanterar själva prenumerations-logiken i nästa steg
+            }
+        }
+    </script>
+</body>
+</html>
